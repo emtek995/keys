@@ -1,15 +1,19 @@
 #include "main.h"
 
+#include <stdio.h>
+
+#include "btstack.h"
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
-#include <stdio.h>
+
+#include "ble/gatt-service/battery_service_server.h"
+#include "ble/gatt-service/device_information_service_server.h"
+#include "ble/gatt-service/hids_device.h"
 
 const int LED_PIN = 25;
 
 int main() {
-  stdio_init_all();
-
   gpio_init(LED_PIN);
   gpio_set_dir(LED_PIN, GPIO_OUT);
 

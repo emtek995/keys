@@ -1,6 +1,3 @@
 CompileFlags:
-  Add: [-I/usr/include] 
-
-Diagnostics:
-  Suppress: ['unknown_type']
+  Add: [-I.,-I/usr/include,-I/home/eddie/projects/pipico/pico-sdk/lib/btstack/src] 
 

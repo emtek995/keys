@@ -7,6 +7,7 @@
 #include "bluetooth.h"
 #include "btstack.h"
 #include "btstack_defines.h"
+#include "btstack_event.h"
 #include "btstack_run_loop.h"
 #include "gap.h"
 #include "hardware/gpio.h"
@@ -20,30 +21,74 @@
 #include "ble/gatt-service/device_information_service_server.h"
 #include "ble/gatt-service/hids_device.h"
 
-const int LED_PIN = CYW43_WL_GPIO_LED_PIN;
+static const int LED_PIN = CYW43_WL_GPIO_LED_PIN;
 static int battery = 100;
+static hci_con_handle_t con_handle = HCI_CON_HANDLE_INVALID;
+static uint8_t protocol_mode = 1;
 
 // clang-format off
-const uint8_t adv_data[] = {
+static const uint8_t adv_data[] = {
     // Flags general discoverable, BR/EDR not supported
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, 0x06,
     // Name
-    0x0d, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'H', 'I', 'D', ' ', 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd',
+    0x0d, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'D', 'e', 'r', 'p', 'b', 'o', 'a', 'r', 'd', ' ', ' ', ' ',
     // 16-bit Service UUIDs
     0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, ORG_BLUETOOTH_SERVICE_HUMAN_INTERFACE_DEVICE & 0xff, ORG_BLUETOOTH_SERVICE_HUMAN_INTERFACE_DEVICE >> 8,
     // Appearance HID - Keyboard (Category 15, Sub-Category 1)
     0x03, BLUETOOTH_DATA_TYPE_APPEARANCE, 0xC1, 0x03,
 };
 // clang-format on
-const uint8_t adv_data_len = sizeof(adv_data);
+static const uint8_t adv_data_len = sizeof(adv_data);
 
 static void packet_handler(uint8_t packet_type, uint16_t channel,
                            uint8_t *packet, uint16_t size) {
   UNUSED(channel);
   UNUSED(size);
+
+  uint8_t report[] = {0, 0, 4, 0, 0, 0, 0, 0};
   // Early return if we don't care about packet
   if (packet_type != HCI_EVENT_PACKET)
     return;
+
+  switch (hci_event_packet_get_type(packet)) {
+  case HCI_EVENT_DISCONNECTION_COMPLETE:
+    con_handle = HCI_CON_HANDLE_INVALID;
+    break;
+  case SM_EVENT_JUST_WORKS_REQUEST:
+    sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
+    break;
+  case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
+    sm_numeric_comparison_confirm(
+        sm_event_passkey_input_number_get_handle(packet));
+    break;
+  case SM_EVENT_PASSKEY_DISPLAY_NUMBER:
+    break;
+  case HCI_EVENT_HIDS_META:
+    switch (hci_event_hids_meta_get_subevent_code(packet)) {
+    case HIDS_SUBEVENT_INPUT_REPORT_ENABLE:
+      con_handle = hids_subevent_input_report_enable_get_con_handle(packet);
+      // hid_embedded_start_typing();
+      break;
+    case HIDS_SUBEVENT_BOOT_KEYBOARD_INPUT_REPORT_ENABLE:
+      con_handle =
+          hids_subevent_boot_keyboard_input_report_enable_get_con_handle(
+              packet);
+      break;
+    case HIDS_SUBEVENT_PROTOCOL_MODE:
+      protocol_mode = hids_subevent_protocol_mode_get_protocol_mode(packet);
+      break;
+    case HIDS_SUBEVENT_CAN_SEND_NOW:
+      // typing_can_send_now();
+      hids_device_send_input_report(con_handle, report, sizeof(report));
+      break;
+    default:
+      break;
+    }
+    break;
+
+  default:
+    break;
+  }
 }
 
 static void hardware_init() {

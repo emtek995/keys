@@ -3,18 +3,21 @@ cmake_minimum_required(VERSION 3.13)
 include(pico_sdk_import.cmake)
 
 project(keys C CXX ASM)
-set(CMAKE_C_STANDARD 17)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 23)
+set(CMAKE_CXX_STANDARD 23)
 set(PICO_BOARD pico_w)
 set(PICO_CYW43_ARCH_DEFAULT_COUNTRY_CODE CYW43_COUNTRY_USA)
 pico_sdk_init()
 
 add_executable(keys
-  main.c
+        main.cpp
+        include/main.hpp
+        include/bluetooth.hpp
+        bluetooth.cpp
 )
 
 pico_add_extra_outputs(keys)
-pico_btstack_make_gatt_header(keys PRIVATE "${CMAKE_CURRENT_LIST_DIR}/keys.gatt")
+pico_btstack_make_gatt_header(keys PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include/keys.gatt")
 
 target_link_libraries(keys
   pico_multicore
